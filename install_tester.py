@@ -2,6 +2,10 @@ import os
 import subprocess
 import sys
 
+env_file = '.env'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, env_file)
+
 def check_root_privileges():
     """
     Ensure the script is running as root or with sudo.
@@ -10,28 +14,21 @@ def check_root_privileges():
         print("Error: This script must be run as root or with sudo.")
         sys.exit(1)
 
-def prompt_user_input():
-    """
-    Prompts the user for their Telegram Bot token and chat ID.
-    """
-    bot_token = input("Enter your Telegram Bot Token: ")
-    bot_chat_id = input("Enter your Telegram Bot Chat ID: ")
+def create_or_update_env_file():
+    """Create or update the .env file with bot credentials."""
 
-    return bot_token, bot_chat_id
+    # Request BOT_TOKEN and BOT_CHAT_ID from the user
+    bot_token = input("Please enter your Telegram Bot Token: ")
+    chat_id = input("Please enter your Telegram Chat ID: ")
+    host_name = input("Please enter your Host Name: ")
 
-def get_shell_config_file():
-    """
-    Determines the user's shell and returns the appropriate configuration file path.
-    """
-    shell = os.getenv("SHELL", "")
+    # Create or update the .env file
+    with open(env_file, 'w') as f:
+        f.write(f"BOT_TOKEN={bot_token}\n")
+        f.write(f"BOT_CHAT_ID={chat_id}\n")
+        f.write(f"HOST_NAME={chat_id}\n")
     
-    if "bash" in shell:
-        return os.path.expanduser("~/.bashrc")
-    elif "zsh" in shell:
-        return os.path.expanduser("~/.zshrc")
-    else:
-        print(f"Unsupported shell detected: {shell}. Using .bashrc as default.")
-        return os.path.expanduser("~/.bashrc")
+    print(".env file has been created and saved successfully.")
 
 def update_shell_config(bot_token, bot_chat_id):
     """
@@ -45,6 +42,7 @@ def update_shell_config(bot_token, bot_chat_id):
         config_file.write(f"\n# Telegram bot environment variables\n")
         config_file.write(f"export BOT_TOKEN={bot_token}\n")
         config_file.write(f"export BOT_CHAT_ID={bot_chat_id}\n")
+        config_file.write(f"export HOST_NAME={bot_chat_id}\n")
 
     print(f"\nThe following environment variables have been added to {shell_config_file}:\n")
     print(f"export BOT_TOKEN={bot_token}")
@@ -97,25 +95,62 @@ def create_cron_job():
     except PermissionError:
         print("Permission denied. You need to run this script as root to create a cron job.")
 
+def remove_cron_job():
+    """
+    Removes the existing cron job for speedtest_telegram_bot.py.
+    """
+    # Get the absolute path of the current script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(script_dir, "speedtest_telegram_bot.py")
+
+    # Check if there's a cron job for the speedtest_telegram_bot.py script
+    try:
+        # Read the current crontab
+        with open("/etc/crontab", "r") as crontab_file:
+            lines = crontab_file.readlines()
+
+        # Find and remove the cron job line for the speedtest_telegram_bot.py
+        with open("/etc/crontab", "w") as crontab_file:
+            for line in lines:
+                if script_path not in line:
+                    crontab_file.write(line)
+                else:
+                    print(f"Cron job for {script_path} removed.")
+    except PermissionError:
+        print("Permission denied. You need to run this script as root to modify crontab.")
+
 def main():
     # Ensure the script is run as root
     check_root_privileges()
     
-    print("Welcome to the Telegram Bot installation script.")
-    
-    # Prompt user to input BOT_TOKEN and BOT_CHAT_ID
-    bot_token, bot_chat_id = prompt_user_input()
+    # Present options to the user
+    print("Welcome to Speedtest Telegram Bot installation script.")
+    print("1. Install the script and create a cron job")
+    print("2. Remove existing cron job")
 
-    # Update the shell config file with the environment variables
-    update_shell_config(bot_token, bot_chat_id)
+    action = input("Please choose an action (1 or 2): ")
 
-    print("\nEnvironment variables have been set.")
-    print("To apply the changes immediately, run the following command in your terminal:")
-    print("source ~/.bashrc or source ~/.zshrc\n")
-    print("Alternatively, restart your terminal or shell session.")
-    
-    # Ask to create cron job
-    create_cron_job()
+    if action == "1":
+
+        # Update the shell config file with the environment variables
+        if not os.path.exists(env_path):
+          create_or_update_env_file()
+
+        print("\nEnvironment variables have been set.")
+        print("To apply the changes immediately, run the following command in your terminal:")
+        print("source ~/.bashrc or source ~/.zshrc\n")
+        print("Alternatively, restart your terminal or shell session.")
+        
+        # Ask to create cron job
+        create_cron_job()
+
+    elif action == "2":
+        # Remove cron job if it exists
+        remove_cron_job()
+
+    else:
+        print("Invalid choice. Exiting script.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

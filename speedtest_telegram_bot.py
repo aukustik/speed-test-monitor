@@ -3,8 +3,17 @@ import subprocess
 import shutil
 import os
 import requests
-import socket
 import json
+import logging
+from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Set up logging to a file
+log_filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results.log')
+logging.basicConfig(filename=log_filename, level=logging.INFO, format='%(asctime)s - %(message)s')
+
 
 def ensure_speedtest_installed():
     os_type = platform.system()
@@ -41,8 +50,6 @@ def ensure_speedtest_installed():
     print("speedtest successfully installed.")
     return True
 
-
-
 def run_speedtest() -> str:
     """
     Run speedtest CLI in JSON mode and return a formatted string with key metrics.
@@ -59,7 +66,7 @@ def run_speedtest() -> str:
         data = json.loads(result.stdout)
 
         # Get system info
-        hostname = socket.gethostname()
+        hostname = os.getenv("HOST_NAME")
 
         try:
             ipv4 = requests.get("https://ifconfig.me/ip", timeout=5).text.strip()
@@ -85,6 +92,12 @@ def run_speedtest() -> str:
         upload = round(data['upload']['bandwidth'] * 8 / 1_000_000, 2)      # Mbps
         packet_loss = data.get('packetLoss', 0)
         result_url = data['result']['url']
+
+        # Create log line for results
+        log_line = f"{datetime.now()} Upload: {upload:.2f} Download: {download:.2f} Packet Loss %: {packet_loss} Latency: {latency}"
+        
+        # Log the results in a single line
+        logging.info(log_line)
 
         # Format message
         message = (
@@ -183,8 +196,8 @@ def launch():
     # Check if bot is available
     if bot.check_bot():
         # Run speedtest and send results
-        message = run_speedtest()
-        bot.send_message(message)
+        results = run_speedtest()
+        bot.send_message(results)
 
 # Run main function
 if __name__ == "__main__":
