@@ -26,7 +26,7 @@ def create_or_update_env_file():
     with open(env_file, 'w') as f:
         f.write(f"BOT_TOKEN={bot_token}\n")
         f.write(f"BOT_CHAT_ID={chat_id}\n")
-        f.write(f"HOST_NAME={chat_id}\n")
+        f.write(f"HOST_NAME={host_name}\n")
     
     print(".env file has been created and saved successfully.")
 
